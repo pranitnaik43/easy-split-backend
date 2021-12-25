@@ -3,13 +3,26 @@ const Joi = require("joi");
 
 const db = require("../mongo");
 
+const paymentObj = Joi.object({
+  title: Joi.string().required(),
+  note: Joi.string().allow('').optional(),
+  paidBy: Joi.array().items(
+    Joi.object({    
+      memberId: Joi.string().hex().required(),    //payerId (memberId)
+      amount: Joi.number().required(),    //amount paid by that member
+    })
+  ).min(1).required(),
+  splitAmong: Joi.array().items(
+    Joi.string().hex().required()   //memberId
+  ).min(1).optional()
+});
+
 const service = {
   async findAll(req, res) {
     //get all the payments for current plan
     try {
-      let userId = req.userId;
-      let planId = req.params.planId;
-      var data = await db.plans.find({ owner: userId }).toArray();
+      let planId = req.params.id;
+      var data = await db.payments.find({ planId }).toArray();
       res.send(data);
     } catch (err) {
       console.log(err);
@@ -17,18 +30,18 @@ const service = {
     }
   },
   async findById(req, res) {
-    //get plan by id
     try {
       let planId = req.params.id;
+      let paymentId = req.params.paymentId;
 
       //get plan
-      const plan = await db.plans.findOne({ _id: new ObjectId(planId) });
+      const payment = await db.payments.findOne({ _id: new ObjectId(paymentId), planId });
 
-      //if plan is not found
-      if (!plan) {
-        return res.send({ error: { message: "Plan not found" } });
+      //if payment is not found
+      if (!payment) {
+        return res.send({ error: { message: "Not found" } });
       }
-      res.send({ ...plan });
+      res.send({ ...payment });
 
     } catch (err) {
       console.log(err);
@@ -38,18 +51,13 @@ const service = {
   async create(req, res) {
     try {
       //Validate Request Body
-      const { error } = await planBody.validate(req.body);
+      const { error } = await paymentObj.validate(req.body);
       if (error) return res.send({ error: { message: error.details[0].message } });
       
-      //check if name already exists
-      const data = await db.plans.findOne({ name: req.body.name, owner: req.userId });
-      if (data) {
-        return res.send({ error: { message: "Plan name already exists" } });
-      }
-      
-      req.body.owner = req.userId;
-      await db.plans.insertOne(req.body);
-      res.send({ success: { message: "Plan created successfully" } });
+      let planId = req.params.id;
+      req.body.planId = planId;
+      await db.payments.insertOne({...req.body});
+      res.send({ success: { message: "Payment added successfully" } });
 
     } catch (err) {
       console.log(err);
@@ -59,59 +67,23 @@ const service = {
   async updateById(req, res) {
     try {
       //Validate Request Body
-      const { error } = await planBody.validate(req.body);
+      const { error } = await paymentObj.validate(req.body);
       if (error) return res.send({ error: { message: error.details[0].message } });
       
       let planId = req.params.id;
-      const plan = await db.plans.findOne({ _id: new ObjectId(planId) });
-      //check if plan exists
-      if(!plan) {
-        return res.send({ error: { message: "Plan does not exists" } });
+      let paymentId = req.params.paymentId;
+      const payment = await db.payments.findOne({ _id: new ObjectId(paymentId), planId });
+      //check if payment exists
+      if(!payment) {
+        return res.send({ error: { message: "Invalid" } });
       }
 
-      //check if user has access
-      if(plan.owner!==req.userId) {
-        return res.send({ error: { message: "User does not have access to this plan" } });
-      }
-
-      await db.plans.updateOne(
-        { _id: new ObjectId(planId) },
+      req.body.planId = planId;
+      await db.payments.updateOne(
+        { _id: new ObjectId(paymentId), planId },
         { $set: { ...req.body } }
       );
-      res.send({ success: { message: "Plan name changed successfully" } });
-
-    } catch (err) {
-      console.log(err);
-      res.send({ error: { message: "Operation failed" } });
-    }
-  },
-  async addMember(req, res) {
-    try {
-      //Validate Request Body
-      const { error } = await memberObj.validate(req.body);
-      if (error) return res.send({ error: { message: error.details[0].message } });
-      
-      let planId = req.params.id;
-      //check if plan exists
-      const plan = await db.plans.findOne({ _id: new ObjectId(planId) });
-      if(!plan) {
-        return res.send({ error: { message: "Plan does not exists" } });
-      }
-
-      //check if user has access
-      if(plan.owner!==req.userId) {
-        return res.send({ error: { message: "User does not have access to this plan" } });
-      }
-
-      if(!plan.members) plan.members=[];
-
-      plan.members.push(req.body);
-
-      await db.plans.updateOne(
-        { _id: new ObjectId(planId) },
-        { $set: { ...plan } }
-      );
-      res.send({ success: { message: "Plan name changed successfully" } });
+      res.send({ success: { message: "Payment updated successfully" } });
 
     } catch (err) {
       console.log(err);
@@ -121,21 +93,16 @@ const service = {
   async deleteById(req, res) {
     try {
       let planId = req.params.id;
-
-      //check if plan exists
-      const plan = await db.plans.findOne({ _id: new ObjectId(planId) });
-      if (!plan) {
-        return res.send({ error: { message: "Plan does not exist" } });
+      let paymentId = req.params.paymentId;
+      const payment = await db.payments.findOne({ _id: new ObjectId(paymentId), planId });
+      //check if payment exists
+      if(!payment) {
+        return res.send({ error: { message: "Invalid" } });
       }
 
-      //check if user has access
-      if(plan.owner!==req.userId) {
-        return res.send({ error: { message: "User does not have access to this plan" } });
-      }
-
-      //delete the plan
-      await db.plans.deleteOne({ _id: new ObjectId(planId) });
-      res.send({ success: { message: "Plan deleted successfully" } });
+      //delete the payments
+      await db.payments.deleteOne({ _id: new ObjectId(paymentId), planId });
+      res.send({ success: { message: "Payment deleted successfully" } });
     } catch (err) {
       console.log(err);
       res.send({ error: { message: "Operation failed" } });

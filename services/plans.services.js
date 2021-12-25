@@ -34,7 +34,6 @@ const service = {
       return res.send({ error: { message: "Plan not found" } });
     }
     //check if user has access
-    console.log(plan.owner, req.userId);
     if(plan.owner!==req.userId) {
       return res.send({ error: { message: "User does not have access to this plan" } });
     }
@@ -48,10 +47,6 @@ const service = {
       //get plan
       const plan = await db.plans.findOne({ _id: new ObjectId(planId) });
 
-      //if plan is not found
-      if (!plan) {
-        return res.send({ error: { message: "Plan not found" } });
-      }
       res.send({ ...plan });
     } catch (err) {
       console.log(err);
@@ -87,15 +82,6 @@ const service = {
       
       let planId = req.params.id;
       const plan = await db.plans.findOne({ _id: new ObjectId(planId) });
-      //check if plan exists
-      if(!plan) {
-        return res.send({ error: { message: "Plan does not exists" } });
-      }
-
-      //check if user has access
-      if(plan.owner!==req.userId) {
-        return res.send({ error: { message: "User does not have access to this plan" } });
-      }
 
       await db.plans.updateOne(
         { _id: new ObjectId(planId) },
@@ -117,15 +103,7 @@ const service = {
       let planId = req.params.id;
       //check if plan exists
       const plan = await db.plans.findOne({ _id: new ObjectId(planId) });
-      if(!plan) {
-        return res.send({ error: { message: "Plan does not exists" } });
-      }
-
-      //check if user has access
-      if(plan.owner!==req.userId) {
-        return res.send({ error: { message: "User does not have access to this plan" } });
-      }
-
+      
       if(!plan.members) plan.members=[];
 
       plan.members.push(req.body);
@@ -147,15 +125,7 @@ const service = {
 
       //check if plan exists
       const plan = await db.plans.findOne({ _id: new ObjectId(planId) });
-      if (!plan) {
-        return res.send({ error: { message: "Plan does not exist" } });
-      }
-
-      //check if user has access
-      if(plan.owner!==req.userId) {
-        return res.send({ error: { message: "User does not have access to this plan" } });
-      }
-
+      
       //delete the plan
       await db.plans.deleteOne({ _id: new ObjectId(planId) });
       res.send({ success: { message: "Plan deleted successfully" } });
