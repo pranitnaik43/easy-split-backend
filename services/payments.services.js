@@ -14,7 +14,8 @@ const paymentObj = Joi.object({
   ).min(1).required(),
   splitAmong: Joi.array().items(
     Joi.string().hex().required()   //memberId
-  ).min(1).optional()
+  ).min(1).optional(),
+  settlement: Joi.bool().optional()
 });
 
 const service = {
